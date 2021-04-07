@@ -1,0 +1,100 @@
+<div id="dropin-wrapper">
+  <div id="checkout-message"></div>
+  <div id="dropin-container"></div>
+  <button id="submit-button">Submit payment</button>
+</div>
+
+<script>
+  var button = document.querySelector('#submit-button');
+  var clientToken;
+
+
+  $.ajax({
+    type: 'GET',
+    url: '/checkout',
+  }).done(function (result) {
+    clientToken = result;
+    console.log(result);
+
+    braintree.dropin.create({
+      // Insert your tokenization key here
+      //authorization: 'sandbox_x637638b_qw47n4kc9kn24wkc',
+      authorization: clientToken,
+      container: '#dropin-container',
+      threeDSecure: true,
+      paypal: {
+        flow: 'vault',
+        //amount: '531.96',
+        //currency: 'EUR'
+      }
+    }, function (createErr, instance) {
+      button.addEventListener('click', function () {
+        var threeDSecureParameters = {
+          amount: '2099.00',
+          email: 'test@example.com',
+          billingAddress: {
+            givenName: 'Jill', // ASCII-printable characters required, else will throw a validation error
+            surname: 'Doe', // ASCII-printable characters required, else will throw a validation error
+            phoneNumber: '8101234567',
+            streetAddress: '555 Smith St.',
+            extendedAddress: '#5',
+            locality: 'Oakland',
+            region: 'CA',
+            postalCode: '12345',
+            countryCodeAlpha2: 'US'
+          },
+          additionalInformation: {
+            workPhoneNumber: '8101234567',
+            shippingGivenName: 'Jill',
+            shippingSurname: 'Doe',
+            shippingPhone: '8101234567',
+            shippingAddress: {
+              streetAddress: '555 Smith St.',
+              extendedAddress: '#5',
+              locality: 'Oakland',
+              region: 'CA',
+              postalCode: '12345',
+              countryCodeAlpha2: 'US'
+            }
+          },
+        };
+        instance.requestPaymentMethod({
+          threeDSecure: threeDSecureParameters
+        }, function (requestPaymentMethodErr, payload) {
+
+          // When the user clicks on the 'Submit payment' button this code will send the
+          // encrypted payment information in a variable called a payment method nonce
+          console.log(requestPaymentMethodErr);
+          console.log(payload);
+          console.log(payload.nonce);
+          $.ajax({
+            type: 'POST',
+            url: '/checkout',
+            data: { 'paymentMethodNonce': payload.nonce }
+
+          }).done(function (result) {
+            // Tear down the Drop-in UI
+            instance.teardown(function (teardownErr) {
+              if (teardownErr) {
+                console.error('Could not tear down Drop-in UI!');
+              } else {
+                console.info('Drop-in UI has been torn down!');
+                // Remove the 'Submit payment' button
+                $('#submit-button').remove();
+              }
+            });
+            if (result.success) {
+              $('#checkout-message').html('<h1>Success</h1><p>Your Drop-in UI is working! Check your <a href="https://sandbox.braintreegateway.com/login">sandbox Control Panel</a> for your test transactions.</p><p>Refresh to try another transaction.</p>');
+            } else {
+              console.log(result);
+              $('#checkout-message').html('<h1>Error</h1><p>Check your console.</p>');
+            }
+          });
+        });
+      });
+    });
+
+  });
+  
+
+</script>
